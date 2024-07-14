@@ -1,0 +1,189 @@
+---
+title: "Meta-Analysis (TG-Trustee)"
+author: "Liam A. Doyle"
+date: "2024-07-05"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(meta)
+library(metafor)
+library(devtools)
+library(esc)
+library(effectsize)
+library(psych)
+library(dmetar)
+library(readxl)
+```
+
+```{r import, include=FALSE}
+TG_Trustee <- read_excel("C:/Users/lad81/Desktop/TG_Trustee/TG_Trustee.xlsx")
+```
+
+```{r recode, include=FALSE}
+TG_Trustee$Sample_Source <- factor(TG_Trustee$Sample_Source,
+                                  levels = c(0, 1, 2, 3),
+                                  labels = c("Community", "Student", "Inmate", "Mixed"))
+
+TG_Trustee$Publication_Status <- factor(TG_Trustee$Publication_Status,
+                                       levels = c(0, 1),
+                                       labels = c("Unpublished", "Published"))
+
+TG_Trustee$Measure_coded <- factor(TG_Trustee$Measure_coded,
+                                       levels = c(0, 1, 2, 3, 4, 5, 6),
+                                       labels = c("SRP", "PCL", "PPI", 
+                                                  "LSRP", "TriPM", "SD3",
+                                                  "DD"))
+
+TG_Trustee$Iterated <- factor(TG_Trustee$Iterated,
+                                       levels = c(0, 1),
+                                       labels = c("One-shot", "Iterated"))
+
+TG_Trustee$Perceived_Opponent <- factor(TG_Trustee$Perceived_Opponent,
+                                        levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+TG_Trustee$Social_role <- factor(TG_Trustee$Social_role,
+                                       levels = c(0, 1),
+                                       labels = c("Close member", "Distant member"))
+
+TG_Trustee$Incentives <- factor(TG_Trustee$Incentives,
+                               levels = c(0, 1, 2),
+                               labels = c("Not incentivized", "Participation incentivized",
+                                          "Performance incentivized"))
+
+TG_Trustee$Experimental_Manipulation <- factor(TG_Trustee$Experimental_Manipulation,
+                                                levels = c(0, 1),
+                                                labels = c("No Manipulation",
+                                                           "Manipulation"))
+
+TG_Trustee$Feedback <- factor(TG_Trustee$Feedback,
+                                levels = c(0, 1),
+                                labels = c("No feedback", "Feedback"))
+```
+
+```{r transform, include=FALSE}
+TG_Trustee <- TG_Trustee %>%
+  mutate(z_psyc_coop = 0.5 * log((1 + Psyc_Coop)/(1 - Psyc_Coop)))
+
+TG_Trustee <- TG_Trustee %>%
+  mutate(z_se_psyc_coop = 1/(sqrt(n_effect - 3)))
+
+TG_Trustee <- TG_Trustee %>%
+  mutate(var_z_psyc_coop = (z_se_psyc_coop^2))
+```
+
+## Project Description
+
+This is an R Markdown file that documents for some of the analyses conducted for the first study in my dissertation. Specifically, this file documents the multi-level random effects meta-analytic model conducted for the effect of psychopathy on behaviour in the Trust Game as a Trustee (TG-Trustee).
+
+## Multi-Level Random Effects Model of Psychopathy on Cooperation in the TG-Trustee
+
+```{r model, echo=FALSE, warning=FALSE}
+full.model <- rma.mv(yi = z_psyc_coop,
+                     V = var_z_psyc_coop,
+                     slab = Study,
+                     data = TG_Trustee,
+                     random = ~ 1 | Study/Effect_size_ID,
+                     test = "t",
+                     method = "REML")
+
+summary(full.model)
+
+convert_z2r(-.1896)
+```
+
+## Distribution of Variance Across Levels
+
+```{r variance, echo=FALSE, warning=FALSE}
+i2 <- var.comp(full.model)
+
+plot(i2)
+```
+
+
+## Comparing Models
+
+Examining the fit of the simple random-effects meta-analytic model vs. the multi-level random-effects meta-analytic model.
+
+```{r model comparison, echo=FALSE, warning=FALSE}
+l3.removed <- rma.mv(yi = z_psyc_coop,
+                     V = var_z_psyc_coop,
+                     slab = Study,
+                     data = TG_Trustee,
+                     random = ~ 1 | Study/Effect_size_ID,
+                     test = "t",
+                     method = "REML",
+                     sigma2 = c(0, NA))
+
+summary(l3.removed)
+
+anova(full.model, l3.removed)
+```
+
+## Forest Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r forest plot, echo=FALSE, warning=FALSE, fig.width=10, fig.height=7, out.width='250%', out.height='250%'}
+m.cor <- metacor(cor = Psyc_Coop,
+                 n = n_effect,
+                 studlab = Study,
+                 data = TG_Trustee,
+                 fixed = FALSE,
+                 random = TRUE,
+                 method.tau = "REML",
+                 method.random.ci = "HK",
+                 title = "Psychopathy and Cooperation as the Trustee in the TG")
+
+summary(m.cor)
+
+forestplot <- meta::forest(m.cor,
+                           sortvar = Psyc_Coop,
+                           prediction = TRUE,
+                           print.tau2 = TRUE)
+```
+
+## Drapery Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r drapery plot, echo=FALSE, warning=FALSE}
+drapery(m.cor,
+        labels = "studlab",
+        type = "pval",
+        srt.labels = 45,
+        legend = TRUE)
+```
+
+## Funnel Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r funnel plot, echo=FALSE, warning=FALSE}
+meta::funnel(m.cor,
+             xlim = c(-1, 1),
+             studlab = FALSE)
+
+title("Funnel Plot of the Effect Sizes for the Psychopathy-Cooperation Relationship")
+```
+
+## Egger's Regression Test
+
+```{r egger, echo=FALSE, warning=FALSE}
+metabias(m.cor,
+         method.bias = "linreg",
+         k.min = 8)
+```
+
+## Fail-Safe *N*
+
+```{r fail-safe, echo=FALSE, warning=FALSE}
+fail.safe <- rma(yi = z_psyc_coop,
+                 vi = var_z_psyc_coop,
+                 slab = Study,
+                 data = TG_Trustee,
+                 random = ~ 1 | Study/Effect_size_ID,
+                 test = "t",
+                 method = "REML")
+
+fsn(fail.safe, type = "General", target = 0.05)
+```
