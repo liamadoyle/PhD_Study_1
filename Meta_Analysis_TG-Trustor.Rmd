@@ -1,0 +1,151 @@
+---
+title: "Meta-Analysis (TG-Trustor)"
+author: "Liam A. Doyle"
+date: "2024-07-05"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(meta)
+library(metafor)
+library(devtools)
+library(esc)
+library(effectsize)
+library(psych)
+library(dmetar)
+library(readxl)
+```
+
+```{r import, include=FALSE}
+TG_Trustor <- read_excel("C:/Users/lad81/Desktop/TG_Trustor/TG_Trustor.xlsx")
+```
+
+```{r recode, include=FALSE}
+TG_Trustor$Sample_Source <- factor(TG_Trustor$Sample_Source,
+                                  levels = c(0, 1, 2, 3),
+                                  labels = c("Community", "Student", "Inmate", "Mixed"))
+
+TG_Trustor$Publication_Status <- factor(TG_Trustor$Publication_Status,
+                                       levels = c(0, 1),
+                                       labels = c("Unpublished", "Published"))
+
+TG_Trustor$Measure_coded <- factor(TG_Trustor$Measure_coded,
+                                       levels = c(0, 1, 2, 3, 4, 5, 6),
+                                       labels = c("SRP", "PCL", "PPI", 
+                                                  "LSRP", "TriPM", "SD3",
+                                                  "DD"))
+
+TG_Trustor$Iterated <- factor(TG_Trustor$Iterated,
+                                       levels = c(0, 1),
+                                       labels = c("One-shot", "Iterated"))
+
+TG_Trustor$Perceived_Opponent <- factor(TG_Trustor$Perceived_Opponent,
+                                        levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+TG_Trustor$Social_role <- factor(TG_Trustor$Social_role,
+                                       levels = c(0, 1),
+                                       labels = c("Close member", "Distant member"))
+
+TG_Trustor$Incentives <- factor(TG_Trustor$Incentives,
+                               levels = c(0, 1, 2),
+                               labels = c("Not incentivized", "Participation incentivized",
+                                          "Performance incentivized"))
+
+TG_Trustor$Experimental_Manipulation <- factor(TG_Trustor$Experimental_Manipulation,
+                                                levels = c(0, 1),
+                                                labels = c("No Manipulation",
+                                                           "Manipulation"))
+
+TG_Trustor$Feedback <- factor(TG_Trustor$Feedback,
+                                levels = c(0, 1),
+                                labels = c("No feedback", "Feedback"))
+```
+
+```{r transform, include=FALSE}
+TG_Trustor <- TG_Trustor %>%
+  mutate(z_psyc_coop = 0.5 * log((1 + Psyc_Invest)/(1 - Psyc_Invest)))
+
+TG_Trustor <- TG_Trustor %>%
+  mutate(z_se_psyc_coop = 1/(sqrt(n_effect - 3)))
+
+TG_Trustor <- TG_Trustor %>%
+  mutate(var_z_psyc_coop = (z_se_psyc_coop^2))
+```
+
+## Project Description
+
+This is an R Markdown file that documents for some of the analyses conducted for the first study in my dissertation. Specifically, this file documents the simple random effects meta-analytic model conducted for the effect of psychopathy on behaviour in the Trust Game as a Trustor (TG-Trustor).
+
+## Simple Random Effects Model of Psychopathy on Cooperation in the TG-Trustor
+
+```{r model, echo=FALSE, warning=FALSE}
+TG_Trustor <- drop_na(TG_Trustor, Psyc_Invest)
+
+psyc.coop <- metacor(cor = Psyc_Invest,
+                     n = n_effect,
+                     studlab = Study,
+                     data = TG_Trustor,
+                     fixed = FALSE,
+                     random = TRUE,
+                     method.tau = "REML",
+                     method.random.ci = "HK",
+                     title = "Psychopathy and Cooperation in the TG-Trustor")
+
+summary(psyc.coop)
+```
+
+## Forest Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r forest plot, echo=FALSE, warning=FALSE, fig.width=10, fig.height=7, out.width='250%', out.height='250%'}
+forestplot <- meta::forest(psyc.coop,
+                           sortvar = Psyc_Invest,
+                           prediction = TRUE,
+                           print.tau2 = TRUE)
+```
+
+## Drapery Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r drapery plot, echo=FALSE, warning=FALSE}
+drapery(psyc.coop,
+        labels = "studlab",
+        type = "pval",
+        srt.labels = 45,
+        legend = TRUE)
+```
+
+## Funnel Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r funnel plot, echo=FALSE, warning=FALSE}
+meta::funnel(psyc.coop,
+             xlim = c(-1, 1),
+             studlab = FALSE)
+
+title("Funnel Plot of the Effect Sizes for the Psychopathy-Cooperation Relationship")
+```
+
+## Egger's Regression Test
+
+```{r egger, echo=FALSE, warning=FALSE}
+metabias(psyc.coop,
+         method.bias = "linreg",
+         k.min = 4)
+```
+
+## Fail-Safe *N*
+
+```{r fail-safe, echo=FALSE, warning=FALSE}
+fail.safe <- rma(yi = z_psyc_coop,
+                 vi = var_z_psyc_coop,
+                 slab = Study,
+                 data = TG_Trustor,
+                 random = ~ 1 | Study/Effect_size_ID,
+                 test = "t",
+                 method = "REML")
+
+fsn(fail.safe, type = "General", target = 0.05)
+```
