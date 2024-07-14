@@ -1,0 +1,355 @@
+---
+title: "Meta-Analysis (Dictator Game)"
+author: "Liam A. Doyle"
+date: "2024-07-05"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(meta)
+library(metafor)
+library(devtools)
+library(esc)
+library(effectsize)
+library(psych)
+library(dmetar)
+library(readxl)
+```
+
+```{r import, include=FALSE}
+DG <- read_excel("C:/Users/lad81/Desktop/DG/DG.xlsx")
+```
+
+```{r recode, include=FALSE}
+DG$Sample_Source <- factor(DG$Sample_Source,
+                                  levels = c(0, 1, 2, 3),
+                                  labels = c("Community", "Student", "Inmate", "Mixed"))
+
+DG$Publication_Status <- factor(DG$Publication_Status,
+                                       levels = c(0, 1),
+                                       labels = c("Unpublished", "Published"))
+
+DG$Measure_coded <- factor(DG$Measure_coded,
+                                       levels = c(0, 1, 2, 3, 4, 5, 6),
+                                       labels = c("SRP", "PCL", "PPI", 
+                                                  "LSRP", "TriPM", "SD3",
+                                                  "DD"))
+
+DG$Iterated <- factor(DG$Iterated,
+                                       levels = c(0, 1),
+                                       labels = c("One-shot", "Iterated"))
+
+DG$Perceived_Opponent <- factor(DG$Perceived_Opponent,
+                                 levels = c(0, 1),
+                                 labels = c("No", "Yes"))
+
+DG$Social_role <- factor(DG$Social_role,
+                                       levels = c(0, 1),
+                                       labels = c("Close member", "Distant member"))
+
+DG$Incentives <- factor(DG$Incentives,
+                               levels = c(0, 1, 2),
+                               labels = c("Not incentivized", "Participation incentivized",
+                                          "Performance incentivized"))
+
+DG$Experimental_Manipulation <- factor(DG$Experimental_Manipulation,
+                                                levels = c(0, 1),
+                                                labels = c("No Manipulation",
+                                                           "Manipulation"))
+```
+
+```{r transform, include=FALSE}
+DG <- DG %>%
+  mutate(z_psyc_coop = 0.5 * log((1 + Psych_Coop)/(1 - Psych_Coop)))
+
+DG <- DG %>%
+  mutate(z_se_psyc_coop = 1/(sqrt(n_effect - 3)))
+
+DG <- DG %>%
+  mutate(var_z_psyc_coop = (z_se_psyc_coop^2))
+```
+
+## Project Description
+
+This is an R Markdown file that documents for some of the analyses conducted for the first study in my dissertation. Specifically, this file documents the multi-level meta-analytic model conducted for the effect of psychopathy on behaviour in the Dictator Game.
+
+## Multi-Level Random Effects Model of Psychopathy on Cooperation Across Economic Games
+
+```{r model, echo=FALSE, warning=FALSE}
+full.model <- rma.mv(yi = z_psyc_coop,
+                     V = var_z_psyc_coop,
+                     slab = Study,
+                     data = DG,
+                     random = ~ 1 | Study/Effect_size_ID,
+                     test = "t",
+                     method = "REML")
+
+summary(full.model)
+
+convert_z2r(-.1633)
+```
+
+## Distribution of Variance Across Levels
+
+```{r variance, echo=FALSE, warning=FALSE}
+i2 <- var.comp(full.model)
+
+plot(i2)
+```
+
+## Comparing Models
+
+Examining the fit of the simple random-effects meta-analytic model vs. the multi-level random-effects meta-analytic model.
+
+```{r model comparison, echo=FALSE, warning=FALSE}
+l3.removed <- rma.mv(yi = z_psyc_coop,
+                     V = var_z_psyc_coop,
+                     slab = Study,
+                     data = DG,
+                     random = ~ 1 | Study/Effect_size_ID,
+                     test = "t",
+                     method = "REML",
+                     sigma2 = c(0, NA))
+
+anova(full.model, l3.removed)
+```
+
+## Forest Plot of Psychopathy-Cooperation Meta-Analysis
+
+Note: This plot had to be generated using a simple random-effects meta-analytic model, as there is not a package available in *R* to accommodate the creation of forest plots for multi-level meta-analytic models.
+
+```{r forest plot, echo=FALSE, warning=FALSE}
+psyc.coop <- metacor(cor = Psych_Coop,
+                 n = n_effect,
+                 studlab = Study,
+                 data = DG,
+                 fixed = FALSE,
+                 random = TRUE,
+                 method.tau = "REML",
+                 method.random.ci = "HK",
+                 title = "Psychopathy and Cooperation in the DG")
+
+png(file = "forestplot.png", width = 2800, height = 2400, res = 300)
+
+meta::forest(psyc.coop,
+             sortvar = Psych_Coop,
+             prediction = TRUE,
+             print.tau2 = TRUE,
+             width = 1000)
+
+dev.off()
+
+knitr::include_graphics("forestplot.png")
+```
+
+## Drapery Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r drapery plot, echo=FALSE, warning=FALSE}
+drapery(psyc.coop,
+        labels = "studlab",
+        type = "pval",
+        srt.labels = 45,
+        legend = FALSE)
+```
+
+## Funnel Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r funnel plot, echo=FALSE, warning=FALSE}
+meta::funnel(psyc.coop,
+             xlim = c(-.5, .5),
+             studlab = FALSE)
+
+title("Funnel Plot of Effect Sizes for the Psychopathy-Cooperation Relationship")
+```
+
+## Egger's Regression Test
+
+```{r egger, echo=FALSE, warning=FALSE}
+metabias(psyc.coop,
+         method.bias = "linreg")
+```
+
+## Fail-Safe *N*
+
+```{r fail-safe, echo=FALSE, warning=FALSE}
+fail.safe <- rma(yi = z_psyc_coop,
+                 vi = var_z_psyc_coop,
+                 slab = Study,
+                 data = DG,
+                 test = "t",
+                 method = "REML")
+
+summary(fail.safe)
+
+fsn(fail.safe, type = "General", target = 0.05)
+```
+
+## *N* as a Moderator of Effect Size
+
+```{r moderator n, echo=FALSE, warning=FALSE}
+mod.model.n <- rma.mv(yi = z_psyc_coop,
+                             V = var_z_psyc_coop,
+                             slab = Study,
+                             data = DG,
+                             random = ~ 1 | Study/Effect_size_ID,
+                             test = "t",
+                             method = "REML",
+                             mods = ~ n_effect)
+
+summary(mod.model.n)
+```
+
+## Sex Composition as a Moderator of Effect Size
+
+```{r moderator sex, echo=FALSE, warning=FALSE}
+mod.model.sex <- rma.mv(yi = z_psyc_coop,
+                        V = var_z_psyc_coop,
+                        slab = Study,
+                        data = DG,
+                        random = ~ 1 | Study/Effect_size_ID,
+                        test = "t",
+                        method = "REML",
+                        mods = ~ Sex_female)
+
+summary(mod.model.sex)
+```
+
+## Average Sample Age as a Moderator of Effect Size
+
+```{r moderator age, echo=FALSE, warning=FALSE}
+mod.model.age <- rma.mv(yi = z_psyc_coop,
+                        V = var_z_psyc_coop,
+                        slab = Study,
+                        data = DG,
+                        random = ~ 1 | Study/Effect_size_ID,
+                        test = "t",
+                        method = "REML",
+                        mods = ~ Age)
+
+summary(mod.model.age)
+```
+
+## Sample Source as a Moderator of Effect Size
+
+```{r moderator sample, echo=FALSE, warning=FALSE}
+mod.model.sample <- rma.mv(yi = z_psyc_coop,
+                           V = var_z_psyc_coop,
+                           slab = Study,
+                           data = DG,
+                           random = ~ 1 | Study/Effect_size_ID,
+                           test = "t",
+                           method = "REML",
+                           mods = ~ Sample_Source)
+
+summary(mod.model.sample)
+```
+
+## Publication Status as a Moderator of Effect Size
+
+```{r moderator publication, echo=FALSE, warning=FALSE}
+mod.model.pub <- rma.mv(yi = z_psyc_coop,
+                        V = var_z_psyc_coop,
+                        slab = Study,
+                        data = DG,
+                        random = ~ 1 | Study/Effect_size_ID,
+                        test = "t",
+                        method = "REML",
+                        mods = ~ Publication_Status)
+
+summary(mod.model.pub)
+```
+
+## Psychopathy Measure as a Moderator of Effect Size
+
+```{r moderator measure, echo=FALSE, warning=FALSE}
+mod.model.measure <- rma.mv(yi = z_psyc_coop,
+                            V = var_z_psyc_coop,
+                            slab = Study,
+                            data = DG,
+                            random = ~ 1 | Study/Effect_size_ID,
+                            test = "t",
+                            method = "REML",
+                            mods = ~ Measure_coded)
+
+summary(mod.model.measure)
+```
+
+## One-Shot vs. Iterated as a Moderator of Effect Size
+
+```{r moderator iterated, echo=FALSE, warning=FALSE}
+mod.model.iterated <- rma.mv(yi = z_psyc_coop,
+                             V = var_z_psyc_coop,
+                             slab = Study,
+                             data = DG,
+                             random = ~ 1 | Study/Effect_size_ID,
+                             test = "t",
+                             method = "REML",
+                             mods = ~ Iterated)
+
+summary(mod.model.iterated)
+```
+
+## Perceived Opponent as a Moderator of Effect Size
+
+```{r moderator perceived, echo=FALSE, warning=FALSE}
+mod.model.perceive <- rma.mv(yi = z_psyc_coop,
+                             V = var_z_psyc_coop,
+                             slab = Study,
+                             data = DG,
+                             random = ~ 1 | Study/Effect_size_ID,
+                             test = "t",
+                             method = "REML",
+                             mods = ~ Perceived_Opponent)
+
+summary(mod.model.perceive)
+```
+
+## Social Role as a Moderator of Effect Size
+
+```{r moderator social role, echo=FALSE, warning=FALSE}
+mod.model.social <- rma.mv(yi = z_psyc_coop,
+                           V = var_z_psyc_coop,
+                           slab = Study,
+                           data = DG,
+                           random = ~ 1 | Study/Effect_size_ID,
+                           test = "t",
+                           method = "REML",
+                           mods = ~ Social_role)
+
+summary(mod.model.social)
+```
+
+## Incentive Structure as a Moderator of Effect Size
+
+```{r moderator incentive, echo=FALSE, warning=FALSE}
+mod.model.incentive <- rma.mv(yi = z_psyc_coop,
+                              V = var_z_psyc_coop,
+                              slab = Study,
+                              data = DG,
+                              random = ~ 1 | Study/Effect_size_ID,
+                              test = "t",
+                              method = "REML",
+                              mods = ~ Incentives)
+
+summary(mod.model.incentive)
+```
+
+## Experimental Manipulation as a Moderator of Effect Size
+
+```{r moderator experiment, echo=FALSE, warning=FALSE}
+mod.model.experiment <- rma.mv(yi = z_psyc_coop,
+                              V = var_z_psyc_coop,
+                              slab = Study,
+                              data = DG,
+                              random = ~ 1 | Study/Effect_size_ID,
+                              test = "t",
+                              method = "REML",
+                              mods = ~ Experimental_Manipulation)
+
+summary(mod.model.experiment)
+```
+
