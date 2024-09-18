@@ -1,4 +1,4 @@
-# Psychopathy and Exploitation in Economic Games - A Meta-Analysis
+# Psychopathy and Exploitation in Economic Games: <br> A Meta-Analysis
 
 A meta-analysis examining the relationship between psychopathy and exploitation in various economic games (e.g., the Prisoner's Dilemma Game, the Dictator Game). In addition, the relationship between psychopathy and success in the Prisoner's Dilemma Game was examined.
 
@@ -45,7 +45,7 @@ Scripts and Markdown files have been sorted by game in this folder. All script f
 The following table provides direct links to the folders of interest:
 
 | Folder | Description |
-|-----------------|-----------------|
+|----------------------|-----------------|
 | [Collapsed](./Analysis/Collapsed) | Meta-analytic model examining psychopathy and exploitation across all economic games |
 | [Prisoner's Dilemma Game](./Analysis/PDG) | Meta-analytic model examining psychopathy and exploitation/success in the PDG |
 | [Public Goods Game](./Analysis/PGG) | Meta-analytic model examining psychopathy and exploitation in the PGG |
