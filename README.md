@@ -5,6 +5,7 @@ A meta-analysis examining the relationship between psychopathy and exploitation 
 ## Table of Contents
 - [About](#about)
 - [Installation](#installation)
+- [Folder Navigation](#foldernavigation)
 
 ## About
 For the first study of my dissertation, I conducted several meta-analyses examining the relationship between psychopathy and exploitative behaviours in economic games. Specifically, this relationship was examined in five major economic games: the Prisoner's Dilemma Game, the Public Goods Game, the Dictator Game, the Ultimatum Game, and the Trust Game. Several conceptual and methodological moderators were examined (e.g., *k*-index of game, incentive structures of the study). Lastly, the relationship between psychopathy and success in economic games was examined. Due to a lack of data in other games, this solely involved examining this relationship within the Prisoner's Dilemma Game.
@@ -30,3 +31,5 @@ Statistical analysis was conducted using version 4.4.1 of *R*. The packages used
 * version 1.4.3 of the *readxl* package.
 
 All analyses were conducted with version 2024.04.2+764 of *RStudio*.
+
+## Folder Navigation
