@@ -45,7 +45,7 @@ Scripts and Markdown files have been sorted by game in this folder. All script f
 The following table provides direct links to the folders of interest:
 
 | Folder | Description |
-|----------------------|-----------------|
+|-----------------------------------------|-----------------|
 | [Collapsed](./Analysis/Collapsed) | Meta-analytic model examining psychopathy and exploitation across all economic games |
 | [Prisoner's Dilemma Game](./Analysis/PDG) | Meta-analytic model examining psychopathy and exploitation/success in the PDG |
 | [Public Goods Game](./Analysis/PGG) | Meta-analytic model examining psychopathy and exploitation in the PGG |
