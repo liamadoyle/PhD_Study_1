@@ -1,0 +1,159 @@
+---
+title: "Meta-Analysis (PGG)"
+author: "Liam A. Doyle"
+date: "2024-07-05"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(meta)
+library(metafor)
+library(devtools)
+library(esc)
+library(effectsize)
+library(psych)
+library(dmetar)
+library(readxl)
+```
+
+```{r import, include=FALSE}
+PGG <- read_excel("C:/Users/lad81/Desktop/PGG/PGG.xlsx")
+```
+
+```{r recode, include=FALSE}
+PGG$Sample_Source <- factor(PGG$Sample_Source,
+                                  levels = c(0, 1, 2, 3),
+                                  labels = c("Community", "Student", "Inmate", "Mixed"))
+
+PGG$Publication_Status <- factor(PGG$Publication_Status,
+                                       levels = c(0, 1),
+                                       labels = c("Unpublished", "Published"))
+
+PGG$Measure_coded <- factor(PGG$Measure_coded,
+                                       levels = c(0, 1, 2, 3, 4, 5, 6),
+                                       labels = c("SRP", "PCL", "PPI", 
+                                                  "LSRP", "TriPM", "SD3",
+                                                  "DD"))
+
+PGG$Iterated <- factor(PGG$Iterated,
+                                       levels = c(0, 1),
+                                       labels = c("One-shot", "Iterated"))
+
+PGG$Perceived_Opponent <- factor(PGG$Perceived_Opponent,
+                                levels = c(0, 1),
+                                labels = c("No", "Yes"))
+
+PGG$Social_role <- factor(PGG$Social_role,
+                                       levels = c(0, 1),
+                                       labels = c("Close member", "Distant member"))
+
+PGG$Incentives <- factor(PGG$Incentives,
+                               levels = c(0, 1, 2),
+                               labels = c("Not incentivized", "Participation incentivized",
+                                          "Performance incentivized"))
+
+PGG$Experimental_Manipulation <- factor(PGG$Experimental_Manipulation,
+                                        levels = c(0, 1),
+                                        labels = c("No Manipulation",
+                                                   "Manipulation"))
+
+PGG$Feedback <- factor(PGG$Feedback,
+                             levels = c(0, 1),
+                             labels = c("No feedback", "Feedback"))
+
+PGG$Strategy <- factor(PGG$Strategy,
+                             levels = c(0, 1, 2, 3, 4, 5),
+                             labels = c("Live opponent", "TFT", "TF2T",
+                                        "Neutral/Seesaw", "Random",
+                                        "Replicator"))
+
+PGG$Leniency <- factor(PGG$Leniency,
+                             levels = c(0, 1, 2),
+                             labels = c("Lenient", "Neutral", "Harsh"))
+```
+
+```{r transform, include=FALSE}
+PGG <- PGG %>%
+  mutate(z_psyc_coop = 0.5 * log((1 + Psych_Coop)/(1 - Psych_Coop)))
+
+PGG <- PGG %>%
+  mutate(z_se_psyc_coop = 1/(sqrt(n_effect - 3)))
+
+PGG <- PGG %>%
+  mutate(var_z_psyc_coop = (z_se_psyc_coop^2))
+```
+
+## Project Description
+
+This is an R Markdown file that documents for some of the analyses conducted for the first study in my dissertation. Specifically, this file documents the meta-analytic model conducted for the effect of psychopathy on behaviours in the Public Goods Game (PGG).
+
+## Random Effects Model of Psychopathy on Cooperation in the PGG
+
+```{r model, echo=FALSE, warning=FALSE}
+psyc.coop <- metacor(cor = Psych_Coop,
+                 n = n_effect,
+                 studlab = Study,
+                 data = PGG,
+                 fixed = FALSE,
+                 random = TRUE,
+                 method.tau = "REML",
+                 method.random.ci = "HK",
+                 title = "Psychopathy and Cooperation in the Public Goods Game")
+
+summary(psyc.coop)
+```
+
+## Forest Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r forest plot, echo=FALSE, warning=FALSE, fig.width=10, fig.height=7, out.width='150%', out.height='150%'}
+forestplot <- meta::forest(psyc.coop,
+                           sortvar = Psych_Coop,
+                           prediction = TRUE,
+                           print.tau2 = TRUE)
+```
+
+## Drapery Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r drapery plot, echo=FALSE, warning=FALSE}
+drapery(psyc.coop,
+        labels = "studlab",
+        type = "pval",
+        srt.labels = 45,
+        legend = TRUE)
+```
+
+## Funnel Plot of Psychopathy-Cooperation Meta-Analysis
+
+```{r funnel plot, echo=FALSE, warning=FALSE}
+meta::funnel(psyc.coop,
+             xlim = c(-.5, .5),
+             studlab = FALSE)
+
+title("Funnel Plot of Effect Sizes for the Psychopathy-Cooperation Relationship")
+```
+
+## Egger's Regression Test
+
+```{r egger, echo=FALSE, warning=FALSE}
+metabias(psyc.coop,
+         method.bias = "linreg",
+         k.min = 5)
+```
+
+## Fail-Safe *N*
+
+```{r fail-safe, echo=FALSE, warning=FALSE}
+fail.safe <- rma(yi = z_psyc_coop,
+                 vi = var_z_psyc_coop,
+                 slab = Study,
+                 data = PGG,
+                 random = ~ 1 | Study/Effect_size_ID,
+                 test = "t",
+                 method = "REML")
+
+fsn(fail.safe, type = "General", target = 0.05)
+```
