@@ -2,4 +2,4 @@
 
 Within this folder, you can find the supplements for each of the major chapters in my dissertation (i.e., Chapters 2-4).
 
-Please navigate to the chapter that you are interested in. Inside, you will find the relevant '.docx' file available for download.
+Please select the chapter that you are interested in. By left-clicking this file, you can open it within Github and download a local copy for your perusal.
