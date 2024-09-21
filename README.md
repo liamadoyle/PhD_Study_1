@@ -46,6 +46,7 @@ The following table provides direct links to the folders of interest:
 
 | Folder | Description |
 |-----------------------------------------|-----------------|
+| [Supplements](./Supplements) | Supplementary analyses and plots, designed to provide additional details for those reading my dissertation |
 | [Collapsed](./Analysis/Collapsed) | Meta-analytic model examining psychopathy and exploitation across all economic games |
 | [Prisoner's Dilemma Game](./Analysis/PDG) | Meta-analytic model examining psychopathy and exploitation/success in the PDG |
 | [Public Goods Game](./Analysis/PGG) | Meta-analytic model examining psychopathy and exploitation in the PGG |
@@ -54,3 +55,4 @@ The following table provides direct links to the folders of interest:
 | [Ultimatum Game - Responder](./Analysis/UG_Responder) | Meta-analytic model examining psychopathy and exploitation in the UG as the Responder |
 | [Trust Game - Trustor](./Analysis/TG_Trustor) | Meta-analytic model examining psychopathy and exploitation in the TG as the Trustor |
 | [Trust Game - Trustee](./Analysis/TG_Trustee) | Meta-analytic model examining psychopathy and exploitation in the TG as the Trustee |
+| [Data](./Data) | Data for each of the above models to facilitate replication/re-analysis |
