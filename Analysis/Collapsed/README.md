@@ -1,6 +1,6 @@
 ## Instructions
 
-If you would like to view the *R* script underlying the results, please left-click the '.Rmd' file. 
+If you would like to view the *R* script underlying the results, please left-click the '.qmd' file. 
 
 If you would like to view results without need for the code, please left-click the '.html' file.
 
