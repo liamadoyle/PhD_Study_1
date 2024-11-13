@@ -1,0 +1,505 @@
+---
+title: "Ultimatum Game (Responder)"
+author: "Liam Doyle"
+format: html
+embed-resources: true
+editor: visual
+---
+
+## Description
+
+This document is a summary of the analyses performed for the sixth meta-analytic model conducted in Study 1 of my dissertation. This model examined the relationship between psychopathy and exploitative behavior in the Ultimatum Game as the Responder.
+
+This model utilized a multi-level or hierarchical approach in order to deal with the issue of nested effect sizes (i.e., some studies contributing more than one effect size to the analysis).
+
+## Loading Packages
+
+All relevant packages loaded below.
+
+```{r library, message=FALSE}
+library(tidyverse)
+library(meta)
+library(metafor)
+library(devtools)
+library(esc)
+library(effectsize)
+library(psych)
+library(dmetar)
+library(readxl)
+```
+
+## Loading Data
+
+Loading the excel spreadsheet with all study information.
+
+```{r data import, message=FALSE}
+UG_Responder <- read_excel("UG_Responder.xlsx")
+```
+
+## Recoding Variables as Factors
+
+Recoding relevant variables (i.e., moderators in the analysis) as factors.
+
+```{r recode}
+UG_Responder$Sample_Source <- factor(UG_Responder$Sample_Source,
+                                  levels = c(0, 1, 2, 3),
+                                  labels = c("Community", "Student", "Inmate", "Mixed"))
+
+UG_Responder$Publication_Status <- factor(UG_Responder$Publication_Status,
+                                       levels = c(0, 1),
+                                       labels = c("Unpublished", "Published"))
+
+UG_Responder$Measure_coded <- factor(UG_Responder$Measure_coded,
+                                       levels = c(0, 1, 2, 3, 4, 5, 6),
+                                       labels = c("SRP", "PCL", "PPI", 
+                                                  "LSRP", "TriPM", "SD3",
+                                                  "DD"))
+
+UG_Responder$Iterated <- factor(UG_Responder$Iterated,
+                                       levels = c(0, 1),
+                                       labels = c("One-shot", "Iterated"))
+
+UG_Responder$Perceived_Opponent <- factor(UG_Responder$Perceived_Opponent,
+                                 levels = c(0, 1),
+                                 labels = c("No", "Yes"))
+
+UG_Responder$Social_role <- factor(UG_Responder$Social_role,
+                                       levels = c(0, 1),
+                                       labels = c("Close member", "Distant member"))
+
+UG_Responder$Incentives <- factor(UG_Responder$Incentives,
+                               levels = c(0, 1, 2),
+                               labels = c("Not incentivized", "Participation incentivized",
+                                          "Performance incentivized"))
+
+UG_Responder$Experimental_Manipulation <- factor(UG_Responder$Experimental_Manipulation,
+                                                levels = c(0, 1),
+                                                labels = c("No Manipulation",
+                                                           "Manipulation"))
+
+UG_Responder$Feedback <- factor(UG_Responder$Feedback,
+                                levels = c(0, 1),
+                                labels = c("No feedback", "Feedback"))
+```
+
+## Computing Additional Variables
+
+Performing mathematical computations to compute relevant variables such as Fisher's *z*, as well as it's standard error and variance.
+
+```{r transform}
+UG_Responder <- UG_Responder %>%
+  mutate(z_psyc_coop = 0.5 * log((1 + Psyc_Accepted)/(1 - Psyc_Accepted)))
+
+UG_Responder <- UG_Responder %>%
+  mutate(z_se_psyc_coop = 1/(sqrt(n_effect - 3)))
+
+UG_Responder <- UG_Responder %>%
+  mutate(var_z_psyc_coop = (z_se_psyc_coop^2))
+```
+
+## Multi-Level Random-Effects Model of Psychopathy on Cooperation in the Ultimatum Game (Responder)
+
+As noted in the heading and the project description, this model utilizes a multi-level or hierarchical approach to modelling the relationship between psychopathy and cooperation in the Ultimatum Game as the Responder. This is due to the fact that several of the studies included in the meta-analysis contributed more than one effect size to the analysis (e.g., a study using more than one measure of psychopathy). The contemporary recommendation for addressing this issue is to use a multi-level approach to cluster these data points - rather than simply aggregating them and ignoring potential differences between the effects.
+
+In addition, I have made the decision to use a random-effects model for the meta-analyses in this dissertation. The fixed-effects model makes untenable assumptions about the sources of variance in the effect sizes (i.e., assuming that all effect sizes are from a homogenous population, and the only source of variance in effect sizes is from sampling error). The assumptions of a fixed-effects model also stand in contradiction to the intended moderator analyses which make up a substantial portion of our later analyses.
+
+### Creation of the Model
+
+```{r model}
+full.model <- rma.mv(yi = z_psyc_coop,
+                     V = var_z_psyc_coop,
+                     slab = Study,
+                     data = UG_Responder,
+                     random = ~ 1 | Study/Effect_size_ID,
+                     test = "t",
+                     method = "REML")
+
+summary(full.model)
+
+convert_z2r(-.0433)
+```
+
+As we can see, the model estimates that the meta-analytic effect size is *r* = -.043, 95% CI \[-.104, .018\]. Cochran's *Q* statistic was not significant, indicating little to no between-study heterogeneity.
+
+### Distribution of Variance Across Levels
+
+This function, provided by the package *dmetar*, calculates a multilevel version of *I*^2^. Level 1 variance corresponds to sampling error variance. Level 2 variance corresponds to within-study (or cluster) variance. Level 3 variance corresponds to between-study variance.
+
+```{r variance}
+i2 <- var.comp(full.model)
+
+plot(i2)
+```
+
+In our case, roughly 13.01% of the variation between effect sizes can be attributed to between-study heterogeneity. The remaining variance has been attributed to sampling error. No within-study sampling variability was detected. This *I*^2^ value is considered to represent a very small amount of heterogeneity.
+
+### Comparing Models
+
+Examining the fit of a simple random-effects meta-analytic model vs. the multi-level random-effects meta-analytic model. This suggests that the fit of the multi-level random-effects model is marginally better than a simple random-effects model. Thus, we will retain the multi-level model. Theoretically, the three-level structure also better represents the data-generating process.
+
+```{r model comparison}
+l3.removed <- rma.mv(yi = z_psyc_coop,
+                     V = var_z_psyc_coop,
+                     slab = Study,
+                     data = UG_Responder,
+                     random = ~ 1 | Study/Effect_size_ID,
+                     test = "t",
+                     method = "REML",
+                     sigma2 = c(0, NA))
+
+anova(full.model, l3.removed)
+```
+
+### Forest Plot of the Model
+
+Note: This plot had to be generated using a simple random-effects meta-analytic model, as there is not a package available in *R* to accommodate the creation of forest plots for multi-level meta-analytic models.
+
+```{r forest plot}
+m.cor <- metacor(cor = Psyc_Accepted,
+                 n = n_effect,
+                 studlab = Study,
+                 data = UG_Responder,
+                 fixed = FALSE,
+                 random = TRUE,
+                 method.tau = "REML",
+                 method.random.ci = "HK",
+                 title = "Psychopathy and Cooperation as the Responder in the UG")
+
+
+forestplot <- meta::forest(m.cor,
+                           sortvar = Psyc_Accepted,
+                           prediction = TRUE,
+                           print.tau2 = TRUE,
+                           width = 1000,
+                           file = "forest.jpeg")
+
+knitr::include_graphics("forest.jpeg")
+```
+
+## Tests of Publication Bias
+
+In this section, I examined the possibility of publication bias via the visual examination of funnel plots, Egger's regression test, a simple meta-regression which regressed publication status (as a binary factor) on effect size, and PET-PEESE methods.
+
+### Funnel Plot
+
+This funnel plot does possess some asymmetry, with more effect sizes expected at the bottom-left quadrant of the funnel. That being said, it should be noted that asymmetry in a funnel plot has several possible sources (Page et al., 2020):
+
+-   Publication bias and other reporting biases;
+-   Variability in methodological quality;
+-   Between-study heterogeneity;
+-   Artefactual variance (i.e., via the correlation between effect sizes and their standard error)
+-   Chance
+
+While it is certainly possible that the asymmetry is attributable to publication bias, there are also potential explanations for the phenomenon.
+
+```{r funnel}
+meta::funnel(m.cor,
+             xlim = c(-1, 1),
+             studlab = FALSE)
+
+title("Funnel Plot of the Effect Sizes for the UG-R Model")
+```
+
+### Egger's Regression Test
+
+Egger's regression test (Egger et al., 1997) is a method that provides a statistical test of asymmetry in a funnel plot. It involves the prediction of standardized effect sizes on their precision.
+
+The intercept (i.e., $\beta_0$) is of primary interest, representing the asymmetry of the plot. NHST can be used to test the null hypothesis that the intercept is equal to zero, indicating symmetry in the funnel plot. Conversely, a rejected null hypothesis for the intercept indicates asymmetry in the funnel plot - potentially due to publication bias.
+
+The slope (i.e., $\beta_1$) represents the effect size adjusted for precision. It is expected to be consistent with the overall meta-analytic effect.
+
+Reported below is the significance test and parameter estimate for the intercept.
+
+```{r egger}
+metabias(m.cor,
+         method.bias = "linreg")
+```
+
+The intercept was not significant, indicating that there is not a substantial amount of asymmetry in the funnel plot.
+
+### Publication Status as a Moderator of Effect Size
+
+Simple meta-regression was used to predict effect sizes from publication status as a factor (i.e., 0 = unpublished, 1 = published).
+
+```{r moderator publication status}
+mod.model.pub <- rma.mv(yi = z_psyc_coop,
+                        V = var_z_psyc_coop,
+                        slab = Study,
+                        data = UG_Responder,
+                        random = ~ 1 | Study/Effect_size_ID,
+                        test = "t",
+                        method = "REML",
+                        mods = ~ Publication_Status)
+
+
+summary(mod.model.pub)
+```
+
+The omnibus test indicates that there is no significant difference between published and unpublished studies, *F*(1, 13) = 0.02, *p* = .881. Estimates of unpublished studies, *r* = -.037, were comparable to those of published studies, *r* = -.047.
+
+### PET & PEESE Analyses
+
+The PET (Precision-Effect Test) and PEESE (Precision-Effect Estimate with Standard Error) are two analytical methods designed to address publication bias in meta-analyses.
+
+The former, PET analysis, is designed to determine the degree to which small-study effects and publication bias impact a meta-analysis. To do so, effect sizes are predicted from their standard errors. This analysis is used to provide evidence that a genuine effect exists beyond the effect of small-study effects/publication bias.
+
+#### PET Analysis
+
+The key element of the PET analysis is the estimate for $\beta_0$ or the intercept of the regression. According to the logic for PET analysis, a non-significant intercept indicates that no genuine effect occurs beyond small-study effects/publication bias. In contrast, a significant intercept provides evidence for a true effect.
+
+That being said, one potential issue with both PET and PEESE analysis is the assumption that there is a homogenous distribution underlying effect sizes. Conceptually, this is similar to the assumption underlying fixed-effects meta-analyses (https://willgervais.com/blog/2015/6/25/putting-pet-peese-to-the-test-1). While this is problematic in and of itself, we will proceed using the PET-PEESE method.
+
+```{r PET}
+pet_model <- rma.mv(yi = z_psyc_coop,
+                    V = var_z_psyc_coop,
+                    mods = ~ z_se_psyc_coop,
+                    slab = Study,
+                    data = UG_Responder,
+                    random = ~ 1 | Study/Effect_size_ID,
+                    test = "t",
+                    method = "REML")
+
+summary(pet_model)
+```
+
+As seen in the output, the intercept in the model approaches a trend towards significance (*p* = 108). This indicates that a true effect does not exist outside of publication bias. According to the PET-PEESE method, we should not proceed to the PEESE step of modelling. However, the PET-PEESE method has been acknowledged by its creator (Stanley, 2017) to (a) perform poorly under conditions of small sample size (i.e., *k* \< 20) and high between-study heterogeneity (i.e., *I*^2^ \> 80) and (b) heavily over-corrects for bias in the data (Carter et al., 2019). While we have no major between-/within-study heterogeneity indicated by our *I*^2^ value, we do have fewer studies than we should (i.e., k = 15) for this analysis. As an exploratory step, PEESE analysis will be conducted.
+
+#### PEESE Analysis
+
+PEESE analysis aims to produce a precise estimate of the true effect size after accounting for sampling error, small-study effects, and publication bias. It does so by creating a regression where effect sizes are predicted by the squared standard errors of studies.
+
+Again, the primary parameter estimate of interest is $\beta_0$, which indicates the estimate of the true effect size (after adjusting for sampling error, small-study effects, and publication bias). Significance tests are interpreted such that a significant intercept indicates a significant meta-analytic effect size.
+
+A secondary parameter estimate of interest is $\beta_1$, which indicates the relationship between effect sizes and their variances. When this is significant, there is evidence that effect sizes are systematically related to the estimate of their precision (i.e., their variance), which may suggest the presence of small-study effects or publication bias.
+
+More particularly, a positive slope indicates that studies with larger variances (and consequently larger standard errors, and in many cases, smaller samples) report larger effect sizes. This is an indicator of the typical "small-study effect" and indicates potential publication bias.
+
+In contrast, a negative slope suggests that the size of study effects is inversely related to the size of study variances (e.g., studies with small effects report larger variances). This may indicate other sources of bias or sources of heterogeneity impacting the results.
+
+```{r PEESE}
+peese_model <- rma.mv(yi = z_psyc_coop,
+                      V = var_z_psyc_coop,
+                      mods = ~ var_z_psyc_coop,
+                      slab = Study,
+                      data = UG_Responder,
+                      random = ~ 1 | Study/Effect_size_ID,
+                      test = "t",
+                      method = "REML")
+
+summary(peese_model)
+
+convert_z2r(-.0994)
+```
+
+As seen in the model output, the PEESE method indicates that the true effect size is *r* = -.099 and significant at *p* = .046. This differs from the original meta-analytic estimate, *r* = -.043, and is in fact *larger* than the original estimates.
+
+The slope coefficient indicates a non-significant, positive relationship between effect sizes and their variances (see above). The fact that this relationship is not significant indicates that publication bias does not have a substantial impact on the effect sizes.
+
+To illustrate the slope estimated by the model visually, we will plot the regression.
+
+```{r PEESE plot}
+plot(
+  UG_Responder$var_z_psyc_coop, UG_Responder$z_psyc_coop,
+  xlab = "Variance of Effect Sizes",
+  ylab = "Effect Sizes",
+  main = "PEESE Analysis of Psychopathy-Cooperation Meta-Analysis (UG-Responder)"
+)
+abline(a = coef(peese_model)[1], b = coef(peese_model)[2], col = "blue")
+```
+
+### Fail-Safe *N*
+
+A variation of Orwin's (1983) fail-safe N test was used to indicate the number of studies with null effects needed to reduce the effect size to a practically irrelevant size (Viechtbauer, 2010). Practical insignificance was demarked by an effect size of r = \|.05\|, depending on the direction of the summary effect.
+
+```{r fail-safe}
+fail.safe <- rma(yi = z_psyc_coop,
+                 vi = var_z_psyc_coop,
+                 slab = Study,
+                 data = UG_Responder,
+                 method = "REML")
+
+fsn(fail.safe, type = "General", target = 0.05)
+```
+
+## Moderator Analysis
+
+Afterwards, a series of moderators were tested. The list of moderators was generated *a priori* using the Affordance-Based Framework of Prosocial Behavior, original ideas, and ideas from previous meta-analyses on psychopathy and cooperation (e.g., Thielmann et al., 2020). In-depth reasoning for the selection of moderators is provided in the dissertation package.
+
+Multiple meta-regression was not used in our study due to constraints arising from (a) a smaller numbers of studies being used (b) the large number of moderators being considered (Higgins & Thompson, 2004). As such, our study explored individual moderators with simple meta-regression analysis. For each model where there were over 10 studies (Deeks et al., 2023), moderators of interest were examined individually using simple meta-regression.
+
+As the current model had 32 effect sizes, simple meta-regression was used to test the list of moderators. The results are shown below.
+
+### *N* as a Moderator of Effect Size
+
+```{r moderator n}
+mod.model.n <- rma.mv(yi = z_psyc_coop,
+                      V = var_z_psyc_coop,
+                      slab = Study,
+                      data = UG_Responder,
+                      random = ~ 1 | Study/Effect_size_ID,
+                      test = "t",
+                      method = "REML",
+                      mods = ~ n_effect)
+
+summary(mod.model.n)
+```
+
+### Sex Composition as a Moderator of Effect Size
+
+Note: sex composition was a variable represented as the proportion of participants who identified as female in the study.
+
+```{r moderator sex}
+mod.model.sex <- rma.mv(yi = z_psyc_coop,
+                        V = var_z_psyc_coop,
+                        slab = Study,
+                        data = UG_Responder,
+                        random = ~ 1 | Study/Effect_size_ID,
+                        test = "t",
+                        method = "REML",
+                        mods = ~ Sex_female)
+
+summary(mod.model.sex)
+```
+
+### Mean Age as a Moderator of Effect Size
+
+```{r moderator age}
+mod.model.age <- rma.mv(yi = z_psyc_coop,
+                        V = var_z_psyc_coop,
+                        slab = Study,
+                        data = UG_Responder,
+                        random = ~ 1 | Study/Effect_size_ID,
+                        test = "t",
+                        method = "REML",
+                        mods = ~ Age)
+
+summary(mod.model.age)
+```
+
+### Sample Source as a Moderator of Effect Size
+
+Note: Studies were coded such that:
+
+-   0 = Community;
+-   1 = Student;
+-   2 = Inmate;
+-   3 = Mixed
+
+```{r moderator sample source}
+mod.model.sample <- rma.mv(yi = z_psyc_coop,
+                           V = var_z_psyc_coop,
+                           slab = Study,
+                           data = UG_Responder,
+                           random = ~ 1 | Study/Effect_size_ID,
+                           test = "t",
+                           method = "REML",
+                           mods = ~ Sample_Source)
+
+summary(mod.model.sample)
+```
+
+### Psychopathy Measure as a Moderator of Effect Size
+
+Note: Studies were coded such that:
+
+-   0 = SRP;
+-   1 = PCL;
+-   2 = PPI;
+-   3 = LSRP;
+-   4 = TriPM;
+-   5 = SD3;
+-   6 = DD
+
+```{r moderator psychopathy measure}
+mod.model.measure <- rma.mv(yi = z_psyc_coop,
+                            V = var_z_psyc_coop,
+                            slab = Study,
+                            data = UG_Responder,
+                            random = ~ 1 | Study/Effect_size_ID,
+                            test = "t",
+                            method = "REML",
+                            mods = ~ Measure_coded)
+
+summary(mod.model.measure)
+```
+
+### One-Shot vs. Iterated as a Moderator of Effect Size
+
+Note: Studies were coded such that:
+
+-   0 = one-shot;
+-   1 = iterated
+
+```{r moderator iterated}
+mod.model.iterated <- rma.mv(yi = z_psyc_coop,
+                             V = var_z_psyc_coop,
+                             slab = Study,
+                             data = UG_Responder,
+                             random = ~ 1 | Study/Effect_size_ID,
+                             test = "t",
+                             method = "REML",
+                             mods = ~ Iterated)
+
+summary(mod.model.iterated)
+```
+
+### Perceived Opponent as a Moderator of Effect Size
+
+Note: Studies were coded such that:
+
+-   0 = participants were *not* led to believe that their opponent was human;
+-   1 = participants *were* led to believe that their opponent was human
+
+```{r moderator perceived opponent}
+mod.model.perceive <- rma.mv(yi = z_psyc_coop,
+                             V = var_z_psyc_coop,
+                             slab = Study,
+                             data = UG_Responder,
+                             random = ~ 1 | Study/Effect_size_ID,
+                             test = "t",
+                             method = "REML",
+                             mods = ~ Perceived_Opponent)
+
+summary(mod.model.perceive)
+```
+
+### Social Role of Opponent as a Moderator of Effect Size
+
+Note: Studies were coded such that:
+
+-   0 = The participants' perceived opponent was a close member of their social circle (e.g., friend, in-group member);
+-   1 = The participants' perceived opponent was a distant member of their social circle (e.g., stranger, out-group member)
+
+```{r moderator social role}
+mod.model.social <- rma.mv(yi = z_psyc_coop,
+                           V = var_z_psyc_coop,
+                           slab = Study,
+                           data = UG_Responder,
+                           random = ~ 1 | Study/Effect_size_ID,
+                           test = "t",
+                           method = "REML",
+                           mods = ~ Social_role)
+
+summary(mod.model.social)
+```
+
+### Incentive Structure as a Moderator of Effect Size
+
+Note: Studies were coded such that:
+
+-   0 = The study was not incentivized;
+-   1 = Participation was incentivized;
+-   2 = Performance was incentivized
+
+```{r moderator incentive}
+mod.model.incentive <- rma.mv(yi = z_psyc_coop,
+                              V = var_z_psyc_coop,
+                              slab = Study,
+                              data = UG_Responder,
+                              random = ~ 1 | Study/Effect_size_ID,
+                              test = "t",
+                              method = "REML",
+                              mods = ~ Incentives)
+
+summary(mod.model.incentive)
+```
