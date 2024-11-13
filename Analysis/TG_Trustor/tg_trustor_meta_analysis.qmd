@@ -1,0 +1,269 @@
+---
+title: "Trust Game (Proposer)"
+author: "Liam Doyle"
+format: html
+embed-resources: true
+editor: visual
+---
+
+## Description
+
+This document is a summary of the analyses performed for the seventh meta-analytic model conducted in Study 1 of my dissertation. This model examined the relationship between psychopathy and exploitative behavior in the Trust Game as the Proposer (or Trustor).
+
+## Loading Packages
+
+All relevant packages loaded below.
+
+```{r library}
+library(tidyverse)
+library(meta)
+library(metafor)
+library(devtools)
+library(esc)
+library(effectsize)
+library(psych)
+library(dmetar)
+library(readxl)
+```
+
+## Loading Data
+
+Loading the excel spreadsheet with all study information.
+
+```{r data import}
+TG_Trustor <- read_excel("TG_Trustor.xlsx")
+```
+
+## Recoding Variables as Factors
+
+Recoding relevant variables (i.e., moderators in the analysis) as factors.
+
+```{r recode}
+TG_Trustor$Sample_Source <- factor(TG_Trustor$Sample_Source,
+                                  levels = c(0, 1, 2, 3),
+                                  labels = c("Community", "Student", "Inmate", "Mixed"))
+
+TG_Trustor$Publication_Status <- factor(TG_Trustor$Publication_Status,
+                                       levels = c(0, 1),
+                                       labels = c("Unpublished", "Published"))
+
+TG_Trustor$Measure_coded <- factor(TG_Trustor$Measure_coded,
+                                       levels = c(0, 1, 2, 3, 4, 5, 6),
+                                       labels = c("SRP", "PCL", "PPI", 
+                                                  "LSRP", "TriPM", "SD3",
+                                                  "DD"))
+
+TG_Trustor$Iterated <- factor(TG_Trustor$Iterated,
+                                       levels = c(0, 1),
+                                       labels = c("One-shot", "Iterated"))
+
+TG_Trustor$Perceived_Opponent <- factor(TG_Trustor$Perceived_Opponent,
+                                        levels = c(0, 1),
+                                        labels = c("No", "Yes"))
+
+TG_Trustor$Social_role <- factor(TG_Trustor$Social_role,
+                                       levels = c(0, 1),
+                                       labels = c("Close member", "Distant member"))
+
+TG_Trustor$Incentives <- factor(TG_Trustor$Incentives,
+                               levels = c(0, 1, 2),
+                               labels = c("Not incentivized", "Participation incentivized",
+                                          "Performance incentivized"))
+
+TG_Trustor$Experimental_Manipulation <- factor(TG_Trustor$Experimental_Manipulation,
+                                                levels = c(0, 1),
+                                                labels = c("No Manipulation",
+                                                           "Manipulation"))
+
+TG_Trustor$Feedback <- factor(TG_Trustor$Feedback,
+                                levels = c(0, 1),
+                                labels = c("No feedback", "Feedback"))
+```
+
+## Computing Additional Variables
+
+Performing mathematical computations to compute relevant variables such as Fisher's *z*, as well as it's standard error and variance.
+
+```{r transform}
+TG_Trustor <- TG_Trustor %>%
+  mutate(z_psyc_coop = 0.5 * log((1 + Psyc_Invest)/(1 - Psyc_Invest)))
+
+TG_Trustor <- TG_Trustor %>%
+  mutate(z_se_psyc_coop = 1/(sqrt(n_effect - 3)))
+
+TG_Trustor <- TG_Trustor %>%
+  mutate(var_z_psyc_coop = (z_se_psyc_coop^2))
+```
+
+## Random-Effects Model of Psychopathy on Cooperation in the Prisoner's Dilemma Game
+
+I have made the decision to use a random-effects model for the meta-analyses in this dissertation. The fixed-effects model makes untenable assumptions about the sources of variance in the effect sizes (i.e., assuming that all effect sizes are from a homogenous population, and the only source of variance in effect sizes is from sampling error). The assumptions of a fixed-effects model also stand in contradiction to the intended moderator analyses which make up a substantial portion of our later analyses.
+
+### Creation of the Model
+
+```{r model}
+psyc.coop <- metacor(cor = Psyc_Invest,
+                     n = n_effect,
+                     studlab = Study,
+                     data = TG_Trustor,
+                     fixed = FALSE,
+                     random = TRUE,
+                     method.tau = "REML",
+                     method.random.ci = "HK",
+                     title = "Psychopathy and Cooperation in the TG-Trustor")
+
+summary(psyc.coop)
+```
+
+As we can see, the model estimates that the meta-analytic effect size is *r* = -.009, 95% CI \[-.105, .087\]. Cochran's *Q* statistic was not significant, indicating little to no between-study heterogeneity. Similarly, the *I*^2^, $\tau$^2^, and *H* statistics indicate no variation in effect sizes beyond sampling error.
+
+### Forest Plot of the Model
+
+Note: This plot had to be generated using a simple random-effects meta-analytic model, as there is not a package available in *R* to accommodate the creation of forest plots for multi-level meta-analytic models.
+
+```{r forest plot, warning=FALSE}
+forestplot <- meta::forest(psyc.coop,
+                           sortvar = Psyc_Invest,
+                           prediction = TRUE,
+                           print.tau2 = TRUE)
+```
+
+## Tests of Publication Bias
+
+In this section, I examined the possibility of publication bias via the visual examination of funnel plots, Egger's regression test, a simple meta-regression which regressed publication status (as a binary factor) on effect size, and PET-PEESE methods.
+
+### Funnel Plot
+
+It is difficult in this case to assess asymmetry given the small number of studies. The existing studies appear to be roughly symmetrically distributed, with an equal number around the parameter estimate (as well as zero).
+
+As noted previously, asymmetry in a funnel plot has several possible sources (Page et al., 2020):
+
+-   Publication bias and other reporting biases;
+-   Variability in methodological quality;
+-   Between-study heterogeneity;
+-   Artefactual variance (i.e., via the correlation between effect sizes and their standard error)
+-   Chance
+
+```{r funnel}
+meta::funnel(psyc.coop,
+             xlim = c(-1, 1),
+             studlab = FALSE)
+
+title("Funnel Plot of the Effect Sizes for the TG-P Model")
+```
+
+### Egger's Regression Test
+
+Egger's regression test (Egger et al., 1997) is a method that provides a statistical test of asymmetry in a funnel plot. It involves the prediction of standardized effect sizes on their precision.
+
+The intercept (i.e., $\beta_0$) is of primary interest, representing the asymmetry of the plot. NHST can be used to test the null hypothesis that the intercept is equal to zero, indicating symmetry in the funnel plot. Conversely, a rejected null hypothesis for the intercept indicates asymmetry in the funnel plot - potentially due to publication bias.
+
+The slope (i.e., $\beta_1$) represents the effect size adjusted for precision. It is expected to be consistent with the overall meta-analytic effect.
+
+Reported below is the significance test and parameter estimate for the intercept.
+
+```{r egger}
+metabias(psyc.coop,
+         method.bias = "linreg",
+         k.min = 4)
+```
+
+The intercept was not significant, indicating that there is not a substantial amount of asymmetry in the funnel plot. This should be taken with some reservations, however, as meta-regression techniques should not be employed with samples sizes under 10 (i.e., *k* < 10; Deeks et al., 2023). This note also applies to the next two investigations of publication bias.
+
+### Publication Status as a Moderator of Effect Size
+
+Simple meta-regression was used to predict effect sizes from publication status as a factor (i.e., 0 = unpublished, 1 = published).
+
+```{r moderator publication status}
+mod.model.pub <- rma(yi = z_psyc_coop,
+                     vi = var_z_psyc_coop,
+                     data = TG_Trustor,
+                     test = "knha",
+                     method = "REML",
+                     mods = ~ Publication_Status)
+
+summary(mod.model.pub)
+```
+
+The omnibus test indicates that there is no significant difference between published and unpublished studies, *F*(1, 2) = 1.405, *p* = .358.
+
+### PET & PEESE Analyses
+
+The PET (Precision-Effect Test) and PEESE (Precision-Effect Estimate with Standard Error) are two analytical methods designed to address publication bias in meta-analyses.
+
+The former, PET analysis, is designed to determine the degree to which small-study effects and publication bias impact a meta-analysis. To do so, effect sizes are predicted from their standard errors. This analysis is used to provide evidence that a genuine effect exists beyond the effect of small-study effects/publication bias.
+
+#### PET Analysis
+
+The key element of the PET analysis is the estimate for $\beta_0$ or the intercept of the regression. According to the logic for PET analysis, a non-significant intercept indicates that no genuine effect occurs beyond small-study effects/publication bias. In contrast, a significant intercept provides evidence for a true effect.
+
+That being said, one potential issue with both PET and PEESE analysis is the assumption that there is a homogenous distribution underlying effect sizes. Conceptually, this is similar to the assumption underlying fixed-effects meta-analyses (https://willgervais.com/blog/2015/6/25/putting-pet-peese-to-the-test-1). While this is problematic in and of itself, we will proceed using the PET-PEESE method.
+
+```{r PET}
+pet_model <- rma(yi = z_psyc_coop,
+                     vi = var_z_psyc_coop,
+                     data = TG_Trustor,
+                     test = "knha",
+                     method = "REML",
+                     mods = ~ z_se_psyc_coop)
+
+summary(pet_model)
+```
+
+As seen in the output, the intercept in the model is non-significant (*p* = .056). Based on the logic of the test, this indicates that no true effect exists beyond publication bias. While analysis would normally stop here, it must be noted, again, that this is a provisional analysis that goes against contemporary recommendations for the use of meta-regression when a model has fewer than 10 studies (Deeks et al., 2023). As the PET analysis is exploratory, we will continue to PEESE analysis.
+
+#### PEESE Analysis
+
+PEESE analysis aims to produce a precise estimate of the true effect size after accounting for sampling error, small-study effects, and publication bias. It does so by creating a regression where effect sizes are predicted by the squared standard errors of studies.
+
+Again, the primary parameter estimate of interest is $\beta_0$, which indicates the estimate of the true effect size (after adjusting for sampling error, small-study effects, and publication bias). Significance tests are interpreted such that a significant intercept indicates a significant meta-analytic effect size.
+
+A secondary parameter estimate of interest is $\beta_1$, which indicates the relationship between effect sizes and their variances. When this is significant, there is evidence that effect sizes are systematically related to the estimate of their precision (i.e., their variance), which may suggest the presence of small-study effects or publication bias.
+
+More particularly, a positive slope indicates that larger variances (with larger standard errors, and, oftentimes, smaller sample sizes) report larger effect sizes. This is representative of the typical "small-study effect" and indicates potential publication bias.
+
+In contrast, a negative slope suggests that smaller studies report smaller effect sizes and larger studies report larger effect sizes. This may indicate other sources of bias or sources of heterogeneity impacting the results.
+
+```{r PEESE}
+peese_model <- rma(yi = z_psyc_coop,
+                     vi = var_z_psyc_coop,
+                     data = TG_Trustor,
+                     test = "knha",
+                     method = "REML",
+                     mods = ~ var_z_psyc_coop)
+
+summary(peese_model)
+
+convert_z2r(-.0796)
+```
+
+As seen in the model output, the PEESE method indicates that the true effect size is *r* = -.079 and non-significant at *p* = .604. This is substantially lower than our initial estimate, *r* = -0.009. 
+
+The slope coefficient indicates a non-significant, positive relationship between effect sizes and their variances (see above). The fact that this relationship is not significant indicates that publication bias does not have a substantial impact on the effect sizes.
+
+To illustrate the slope estimated by the model visually, we will plot the regression.
+
+```{r PEESE plot}
+plot(
+  TG_Trustor$var_z_psyc_coop, TG_Trustor$z_psyc_coop,
+  xlab = "Variance of Effect Sizes",
+  ylab = "Effect Sizes",
+  main = "PEESE Analysis of Psychopathy-Cooperation Meta-Analysis (PDG)"
+)
+abline(a = coef(peese_model)[1], b = coef(peese_model)[2], col = "blue")
+```
+
+### Fail-Safe *N*
+
+A variation of Orwin's (1983) fail-safe N test was used to indicate the number of studies with null effects needed to reduce the effect size to a practically irrelevant size (Viechtbauer, 2010). Practical insignificance was demarked by an effect size of r = \|.05\|, depending on the direction of the summary effect.
+
+```{r fail-safe}
+fail.safe <- rma(yi = z_psyc_coop,
+                 vi = var_z_psyc_coop,
+                 slab = Study,
+                 data = TG_Trustor,
+                 test = "knha",
+                 method = "REML")
+
+fsn(fail.safe, type = "General", target = 0.05)
+```
